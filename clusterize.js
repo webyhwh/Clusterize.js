@@ -34,12 +34,13 @@
       no_data_class: 'clusterize-no-data',
       no_data_text: 'No data',
       keep_parity: true,
+      full_page_mode: false,
       callbacks: {}
     }
 
     // public parameters
     self.options = {};
-    var options = ['rows_in_block', 'blocks_in_cluster', 'show_no_data_row', 'no_data_class', 'no_data_text', 'keep_parity', 'tag', 'callbacks'];
+    var options = ['rows_in_block', 'blocks_in_cluster', 'show_no_data_row', 'no_data_class', 'no_data_text', 'keep_parity', 'tag', 'callbacks', 'full_page_mode'];
     for(var i = 0, option; option = options[i]; i++) {
       self.options[option] = typeof data[option] != 'undefined' && data[option] != null
         ? data[option]
@@ -48,9 +49,14 @@
 
     var elems = ['scroll', 'content'];
     for(var i = 0, elem; elem = elems[i]; i++) {
-      self[elem + '_elem'] = data[elem + 'Id']
+      if (elem === 'scroll' && self.options.full_page_mode) {
+        self[elem + '_elem'] = document.documentElement;
+      } else {
+        self[elem + '_elem'] = data[elem + 'Id']
         ? document.getElementById(data[elem + 'Id'])
         : data[elem + 'Elem'];
+      }
+
       if( ! self[elem + '_elem'])
         throw new Error("Error! Could not find " + elem + " element");
     }
@@ -97,12 +103,12 @@
       clearTimeout(resize_debounce);
       resize_debounce = setTimeout(self.refresh, 100);
     }
-    on('scroll', self.scroll_elem, scrollEv);
+    on('scroll', self.options.full_page_mode ? window : self.scroll_elem, scrollEv);
     on('resize', window, resizeEv);
 
     // public methods
     self.destroy = function(clean) {
-      off('scroll', self.scroll_elem, scrollEv);
+      off('scroll', self.options.full_page_mode ? window : self.scroll_elem, scrollEv);
       off('resize', window, resizeEv);
       self.html((clean ? self.generateEmptyRow() : rows).join(''));
     }
@@ -115,7 +121,7 @@
         : [];
       var scroll_top = self.scroll_elem.scrollTop;
       // fixes #39
-      if(rows.length * self.options.item_height < scroll_top) {
+      if(rows.length * self.options.item_height <  self.options.full_page_mode ? (self.scroll_elem.scrollTop - self.content_elem.offsetTop) : scroll_top) {
         self.scroll_elem.scrollTop = 0;
         last_cluster = 0;
       }
@@ -194,7 +200,7 @@
     },
     // get current cluster number
     getClusterNum: function () {
-      this.options.scroll_top = this.scroll_elem.scrollTop;
+      this.options.scroll_top = this.options.full_page_mode ? (this.scroll_elem.scrollTop - this.content_elem.offsetTop) : this.scroll_elem.scrollTop;
       return Math.floor(this.options.scroll_top / (this.options.cluster_height - this.options.block_height)) || 0;
     },
     // generate empty row if no data provided
